@@ -112,67 +112,118 @@ const useSpreadsheetWorker = () => {
   return [rowData, rawExpressions, update] as const
 }
 
+const eventToKey = (ev: CellEditRequestEvent | CellFocusedEvent): string =>
+  `${ev.column.colDef.headerName}${ev.rowIndex + 1}`
+
+const Grid = ({
+  setCurrentCell,
+  update,
+  setExpressionText,
+  rawExpressions,
+  rowData,
+}: {
+  setCurrentCell: (cell: string) => void
+  update: (cell: string, expression: string) => void
+  setExpressionText: (expression: string) => void
+  rawExpressions: Record<string, string>
+  rowData: typeof initialRowData
+}) => {
+  const handleCellEditRequest = useCallback(
+    (event: CellEditRequestEvent) => {
+      update(eventToKey(event), event.newValue)
+      setExpressionText(event.newValue)
+    },
+    [update, setExpressionText],
+  )
+
+  const handleCellFocused = useCallback(
+    (event: CellFocusedEvent) => {
+      const key = eventToKey(event)
+      setCurrentCell(key)
+      setExpressionText(rawExpressions[key] ?? "")
+    },
+    [setCurrentCell, setExpressionText, rawExpressions],
+  )
+
+  return (
+    <AgGridReact
+      onCellFocused={handleCellFocused}
+      readOnlyEdit={true}
+      onCellEditRequest={handleCellEditRequest}
+      theme={themeBalham}
+      rowData={rowData}
+      columnDefs={gridColumns}
+      defaultColDef={defaultColDef}
+      getRowId={getRowId}
+    />
+  )
+}
+
+const ExpressionInput = ({
+  update,
+  expressionText,
+  setExpressionText,
+}: {
+  update: (expression: string) => void
+  expressionText: string
+  setExpressionText: (expression: string) => void
+}) => {
+  const handleExpressionInputKeyDown = useCallback(
+    (event) => {
+      if (event.key === "Enter") {
+        update(expressionText)
+      }
+    },
+    [update, expressionText],
+  )
+
+  const handleExpressionInputChange = useCallback(
+    (event) => {
+      setExpressionText(event.target.value)
+    },
+    [setExpressionText],
+  )
+
+  return (
+    <input
+      style={inputStyle}
+      onChange={handleExpressionInputChange}
+      onKeyDown={handleExpressionInputKeyDown}
+      type="text"
+      placeholder="type expression here"
+      value={expressionText}
+    ></input>
+  )
+}
+
 const Spreadsheet = () => {
   const [rowData, rawExpressions, update] = useSpreadsheetWorker()
 
-  const [inputText, setInputText] = useState("")
+  const [expressionText, setExpressionText] = useState("")
   const [currentCell, setCurrentCell] = useState<string>()
 
-  const handleCellEditRequest = useCallback(
-    (event: CellEditRequestEvent) => {
+  const updateCurrentCell = useCallback(
+    (text: string) => {
       if (currentCell !== undefined) {
-        update(currentCell, event.newValue)
-
-        setInputText(event.newValue)
+        update(currentCell, text)
       }
     },
     [update, currentCell],
   )
 
-  const handleExpressionInputKeyDown = useCallback(
-    (event) => {
-      if (currentCell !== undefined) {
-        if (event.key === "Enter") {
-          update(currentCell, inputText)
-        }
-      }
-    },
-    [update, currentCell, inputText],
-  )
-
-  const handleExpressionInputChange = useCallback((event) => {
-    setInputText(event.target.value)
-  }, [])
-
-  const handleCellFocused = useCallback(
-    (event: CellFocusedEvent) => {
-      const key = `${event.column.colDef.headerName}${event.rowIndex + 1}`
-
-      setCurrentCell(key)
-      setInputText(rawExpressions[key] ?? "")
-    },
-    [rawExpressions],
-  )
-
   return (
     <div style={gridStyle}>
-      <input
-        style={inputStyle}
-        onChange={handleExpressionInputChange}
-        onKeyDown={handleExpressionInputKeyDown}
-        type="text"
-        placeholder="type expression here"
-        value={inputText}
-      ></input>
-      <AgGridReact
-        onCellFocused={handleCellFocused}
-        readOnlyEdit={true}
-        onCellEditRequest={handleCellEditRequest}
-        theme={themeBalham}
+      <ExpressionInput
+        update={updateCurrentCell}
+        expressionText={expressionText}
+        setExpressionText={setExpressionText}
+      />
+      <Grid
+        setCurrentCell={setCurrentCell}
+        update={update}
+        setExpressionText={setExpressionText}
+        rawExpressions={rawExpressions}
         rowData={rowData}
-        columnDefs={gridColumns}
-        defaultColDef={defaultColDef}
-        getRowId={getRowId}
       />
     </div>
   )
