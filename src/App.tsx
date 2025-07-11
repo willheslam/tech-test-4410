@@ -85,48 +85,48 @@ const Spreadsheet = () => {
     setSheetWorker(myWorker)
   }, [])
 
+  const update = useCallback(
+    (currentCell: string, text: string) => {
+      if (sheetWorker !== undefined) {
+        sheetWorker.port.postMessage({
+          type: INPUT_EXPRESSION_UPDATES,
+          expressions: {
+            [currentCell]: text,
+          },
+        })
+
+        setRawExpressions((sheetExpressions) => ({
+          ...sheetExpressions,
+          [currentCell]: text,
+        }))
+      }
+    },
+    [sheetWorker],
+  )
+
   const [inputText, setInputText] = useState("")
   const [currentCell, setCurrentCell] = useState<string>()
 
   const handleCellEditRequest = useCallback(
     (event: CellEditRequestEvent) => {
-      if (sheetWorker !== undefined && currentCell !== undefined) {
-        setRawExpressions((sheetExpressions) => ({
-          ...sheetExpressions,
-          [currentCell]: event.newValue,
-        }))
-        setInputText(event.newValue)
+      if (currentCell !== undefined) {
+        update(currentCell, event.newValue)
 
-        sheetWorker.port.postMessage({
-          type: INPUT_EXPRESSION_UPDATES,
-          expressions: {
-            [currentCell]: event.newValue,
-          },
-        })
+        setInputText(event.newValue)
       }
     },
-    [sheetWorker, currentCell],
+    [update, currentCell],
   )
 
   const handleExpressionInputKeyDown = useCallback(
     (event) => {
-      if (currentCell !== undefined && sheetWorker !== undefined) {
+      if (currentCell !== undefined) {
         if (event.key === "Enter") {
-          sheetWorker.port.postMessage({
-            type: INPUT_EXPRESSION_UPDATES,
-            expressions: {
-              [currentCell]: inputText,
-            },
-          })
-
-          setRawExpressions((sheetExpressions) => ({
-            ...sheetExpressions,
-            [currentCell]: inputText,
-          }))
+          update(currentCell, inputText)
         }
       }
     },
-    [sheetWorker, currentCell, inputText],
+    [update, currentCell, inputText],
   )
 
   const handleExpressionInputChange = useCallback((event) => {
