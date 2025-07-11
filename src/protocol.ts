@@ -1,1 +1,3 @@
-export const UPDATE = 1
+export const INPUT_EXPRESSION_UPDATES = 1
+
+export const PUBLISH_EXPRESSION_UPDATES = 2

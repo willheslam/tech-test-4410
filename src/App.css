@@ -24,3 +24,16 @@ body {
   font-weight: 400;
   opacity: 0.5;
 }
+
+.negative-warning {
+  animation: flash 1.25s linear;
+}
+
+@keyframes flash {
+  0% {
+    background-color: red;
+  }
+  100% {
+    background-color: inherit
+  }
+}

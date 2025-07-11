@@ -1,147 +1,160 @@
-import "./App.css"
+import './App.css';
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect } from 'react';
 
-import { AgGridReact } from "ag-grid-react"
+import { AgGridReact } from 'ag-grid-react';
 
 import {
   AllCommunityModule,
   ModuleRegistry,
   themeBalham,
-} from "ag-grid-community"
+} from 'ag-grid-community';
 import type {
   CellValueChangedEvent,
   CellEditRequestEvent,
   CellFocusedEvent,
-} from "ag-grid-community"
+} from 'ag-grid-community';
 
-import { UPDATE } from "./protocol"
+import {
+  INPUT_EXPRESSION_UPDATES,
+  PUBLISH_EXPRESSION_UPDATES,
+} from './protocol';
+import type { ExpressionNode } from './spreadsheet/expressions';
+import { DEMO_HEIGHT, DEMO_WIDTH } from './spreadsheet/table';
 
-ModuleRegistry.registerModules([AllCommunityModule])
+ModuleRegistry.registerModules([AllCommunityModule]);
 
-const getRowId = (row: { data: [rowNumber: number] }) => row.data[0]
+const getRowId = (row: { data: [rowNumber: number] }) => row.data[0];
 
-const columns = 20
-const rows = 30
-
-const gridColumns = Array.from({ length: columns + 1 }, (_, i) => ({
+const gridColumns = Array.from({ length: DEMO_WIDTH + 1 }, (_, i) => ({
   colId: `${i}`,
   field: `${i}`,
-  headerName: i === 0 ? "" : String.fromCharCode(64 + i),
+  headerName: i === 0 ? '' : String.fromCharCode(64 + i),
   editable: i > 0,
 
-  // TODO: will this be useful for colocating numeric results and string expressions?
-  // where to show text expressions?
-  // valueGetter: params => {
-  //     return params.data.name;
-  // },
-  // valueSetter: params => {
-  //     params.data.name = params.newValue;
-  //     return true;
-  // }
-}))
+  cellClass: (params) => {
+    if (i > 0 && Number(params.value) < 0) {
+      return 'negative-warning';
+    }
+    return '';
+  },
+}));
 const initialRowData = Array.from(
-  { length: rows },
-  (_, i) => [`${i + 1}`, ...Array.from({ length: columns }, () => ``)] as const,
-)
+  { length: DEMO_HEIGHT },
+  (_, i) =>
+    [`${i + 1}`, ...Array.from({ length: DEMO_WIDTH }, () => ``)] as const,
+);
 
 const defaultColDef = {
   flex: 1,
-}
+};
 
 // TODO: all the quick start examples use a height of 100%
 // which shows nothing by default so set it to 100vh for now
-const gridStyle = { width: "100%", height: "100vh" }
-const inputStyle = { width: "100%" }
+const gridStyle = { width: '100%', height: '100vh' };
+const inputStyle = { width: '100%' };
 
 const Spreadsheet = () => {
-  const [sheetWorker, setSheetWorker] = useState<SharedWorker>()
+  const [sheetWorker, setSheetWorker] = useState<SharedWorker>();
+
+  const [rowData, setRowData] = useState(initialRowData);
+
+  const [colDefs, setColDefs] = useState(gridColumns);
+
+  const [rawExpressions, setRawExpressions] = useState(
+    {} as Record<string, string>,
+  );
+
+  const [parsedSheetExpressions, setParsedExpressions] = useState(
+    {} as Record<string, ExpressionNode>,
+  );
 
   useEffect(() => {
-    const myWorker = new SharedWorker(new URL("./worker.js", import.meta.url), {
-      name: "spreadsheet-shared-worker",
-    })
+    const myWorker = new SharedWorker(new URL('./worker.js', import.meta.url), {
+      name: 'spreadsheet-shared-worker',
+    });
 
     myWorker.onerror = (error) => {
-      console.error(error)
-      debugger
-    }
-    myWorker.port.addEventListener("message", (event) => {
-      console.log("EVENT", event)
-    })
-    myWorker.port.start()
+      console.error(error);
+    };
+    myWorker.port.addEventListener('message', (event) => {
+      if (event.data.type === PUBLISH_EXPRESSION_UPDATES) {
+        setParsedExpressions(event.data.parsedExpressions);
+        setRawExpressions(event.data.rawExpressions);
+        setRowData(event.data.rowData);
+      }
+    });
+    myWorker.port.start();
 
-    setSheetWorker(myWorker)
-  }, [])
-  const [rowData, setRowData] = useState(initialRowData)
+    setSheetWorker(myWorker);
+  }, []);
 
-  const [colDefs, setColDefs] = useState(gridColumns)
-
-  const [sheetExpressions, setSheetExpressions] = useState(
-    {} as Record<string, string>,
-  )
-
-  const handleCellValueChanged = useCallback(
-    (event: CellValueChangedEvent) => {},
-    [],
-  )
-
-  const [inputText, setInputText] = useState("")
-  const [currentCell, setCurrentCell] = useState<string>()
+  const [inputText, setInputText] = useState('');
+  const [currentCell, setCurrentCell] = useState<string>();
 
   const handleCellEditRequest = useCallback(
     (event: CellEditRequestEvent) => {
       if (sheetWorker !== undefined && currentCell !== undefined) {
-        setSheetExpressions((sheetExpressions) => ({
+        setRawExpressions((sheetExpressions) => ({
           ...sheetExpressions,
           [currentCell]: event.newValue,
-        }))
-        setInputText(event.newValue)
+        }));
+        setInputText(event.newValue);
 
         sheetWorker.port.postMessage({
-          type: UPDATE,
-          key: currentCell,
-          newValue: event.newValue,
-        })
+          type: INPUT_EXPRESSION_UPDATES,
+          expressions: {
+            [currentCell]: event.newValue,
+          },
+        });
       }
     },
     [sheetWorker, currentCell],
-  )
+  );
 
-  const handleKeyDown = useCallback(
+  const handleExpressionInputKeyDown = useCallback(
     (event) => {
-      if (event.key === "Enter" && currentCell !== undefined && sheetWorker !== undefined) {
-        sheetWorker.port.postMessage({
-          type: UPDATE,
-          key: currentCell,
-          newValue: event.newValue,
-        })
+      if (currentCell !== undefined && sheetWorker !== undefined) {
+        if (event.key === 'Enter') {
+          sheetWorker.port.postMessage({
+            type: INPUT_EXPRESSION_UPDATES,
+            expressions: {
+              [currentCell]: inputText,
+            },
+          });
 
-        setSheetExpressions((sheetExpressions) => ({
-          ...sheetExpressions,
-          [currentCell]: inputText,
-        }))
+          setRawExpressions((sheetExpressions) => ({
+            ...sheetExpressions,
+            [currentCell]: inputText,
+          }));
+        }
       }
     },
     [sheetWorker, currentCell, inputText],
-  )
+  );
+
+  const handleExpressionInputChange = useCallback((event) => {
+    setInputText(event.target.value);
+  }, []);
 
   const handleCellFocused = useCallback(
     (event: CellFocusedEvent) => {
-      const key = `${event.column.colDef.headerName}${event.rowIndex + 1}`
+      const key = `${event.column.colDef.headerName}${event.rowIndex + 1}`;
 
-      setCurrentCell(key)
-      setInputText(sheetExpressions[key] ?? "")
+      setCurrentCell(key);
+      setInputText(rawExpressions[key] ?? '');
     },
-    [sheetExpressions],
-  )
+    [rawExpressions],
+  );
 
   return (
     <div style={gridStyle}>
       <input
         style={inputStyle}
-        onKeyDown={handleKeyDown}
+        onChange={handleExpressionInputChange}
+        onKeyDown={handleExpressionInputKeyDown}
         type="text"
+        placeholder="type expression here"
         value={inputText}
       ></input>
       <AgGridReact
@@ -153,14 +166,13 @@ const Spreadsheet = () => {
         columnDefs={colDefs}
         defaultColDef={defaultColDef}
         getRowId={getRowId}
-        onCellValueChanged={handleCellValueChanged}
       />
     </div>
-  )
-}
+  );
+};
 
 const App = () => {
-  return <Spreadsheet />
-}
+  return <Spreadsheet />;
+};
 
-export default App
+export default App;
