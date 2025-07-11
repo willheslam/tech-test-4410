@@ -48,7 +48,11 @@ E5 = B2 + C3
 
 Updating A1 to 43 will cause B2 and E5 to recompute, but not recompute C3 or D4.
 
-Currently the worker does send the entire row data as a big batch to each connected client which is not efficient, but I did this for simplicity - it knows what the delta is and could just send the delta to each client to display.
+Because the values are incrementally, minimally recomputed via a dependency graph, it can in theory deal with large tables and complex chains of equations updated frequently.
+
+In addition, changes to the dependency graph itself are also partial/incremental: the clients only send the changes they've made, and the worker merges that delta with the existing graph - it doesn't reanalyse every single cell's dependencies, only the ones that have changed expressions (and their immediate dependencies).
+
+Currently the worker does send the entire computed row data as a wastefully big batch to each connected client which is not efficient, but I did this for simplicity - it knows what the delta is and could in theory just send the delta to each client to display.
 
 The AG Grid implementation is also very simple and not performant - if I had more time I would work out how to do partial updates and have the delta from the worker just update only the parts of the grid that have changed.
 
@@ -57,7 +61,7 @@ Same for incorrect expression syntax!
 
 Negative numbers have to be described as 0 - N, there's no mod cons here (or modulo, or cons)
 
-I definitely spent longer on this than I should have, but I found getting AG Grid to work quite finnicky - I tried Vite which it didn't work with at all (even forcing width and height to be absolute pixel counts), so I had to try a few different bundling systems to get it to run properly. I don't know why.
+I definitely spent longer on this than I should have, but I found getting AG Grid to work quite finnicky - I tried Vite which it didn't work at all (even forcing width and height to be absolute pixel counts), so I had to try a few different bundlers and frameworks to get it to run properly. I don't know why.
 
 I haven't played with AG Grid much, it looks very powerful but I wonder if it's as efficient as a more focussed library could be, especially one that focussed on minimal data representation rather than rows of strings or objects.
 I didn't look at the high frequency / high performance section of the docs so perhaps there's stuff I'm missing.
