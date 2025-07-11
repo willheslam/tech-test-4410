@@ -9,48 +9,55 @@ import { themeBalham } from "ag-grid-community"
 
 ModuleRegistry.registerModules([AllCommunityModule])
 
-// Create new GridExample component
-const GridExample = () => {
-  // Row Data: The data to be displayed.
-  const [rowData, setRowData] = useState([
-    { make: "Tesla", model: "Model Y", price: 64950, electric: true },
-    { make: "Ford", model: "F-Series", price: 33850, electric: false },
-    { make: "Toyota", model: "Corolla", price: 29600, electric: false },
-    { make: "Mercedes", model: "EQA", price: 48890, electric: true },
-    { make: "Fiat", model: "500", price: 15774, electric: false },
-    { make: "Nissan", model: "Juke", price: 20675, electric: false },
-  ])
+const getRowId = (row: { data: [rowNumber: number] }) => row.data[0]
 
-  // Column Definitions: Defines & controls grid columns.
-  const [colDefs, setColDefs] = useState([
-    { field: "make" },
-    { field: "model" },
-    { field: "price" },
-    { field: "electric" },
-  ])
+const columns = 20
+const rows = 30
 
-  const defaultColDef = {
-    flex: 1,
-  }
+const gridColumns = Array.from({ length: columns + 1 }, (_, i) => ({
+  colId: `${i}`,
+  field: `${i}`,
+  headerName: i === 0 ? "" : String.fromCharCode(64 + i),
+}))
+const initialRowData = Array.from(
+  { length: rows },
+  (_, i) =>
+    [
+      `${i + 1}`,
+      ...Array.from({ length: columns }, () =>
+        Math.floor(100.0 * Math.random()),
+      ),
+    ] as const,
+)
 
-  // TODO: all the quick start examples use a height of 100%
-  // which shows nothing by default so set it to 100vh for now
+const defaultColDef = {
+  flex: 1,
+}
+
+// TODO: all the quick start examples use a height of 100%
+// which shows nothing by default so set it to 100vh for now
+const gridStyle = { width: "100%", height: "100vh" }
+
+const Spreadsheet = () => {
+  const [rowData, setRowData] = useState(initialRowData)
+
+  const [colDefs, setColDefs] = useState(gridColumns)
+
   return (
-    <div style={{ width: "100%", height: "100vh" }}>
+    <div style={gridStyle}>
       <AgGridReact
         theme={themeBalham}
         rowData={rowData}
         columnDefs={colDefs}
         defaultColDef={defaultColDef}
+        getRowId={getRowId}
       />
     </div>
   )
 }
 
 const App = () => {
-  return (
-    <GridExample />
-  )
+  return <Spreadsheet />
 }
 
 export default App
