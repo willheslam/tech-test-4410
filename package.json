@@ -11,6 +11,8 @@
     "preview": "rsbuild preview"
   },
   "dependencies": {
+    "ag-grid-community": "^34.0.1",
+    "ag-grid-react": "^34.0.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
