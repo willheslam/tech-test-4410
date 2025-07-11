@@ -73,16 +73,24 @@ const Spreadsheet = () => {
     myWorker.onerror = (error) => {
       console.error(error)
     }
-    myWorker.port.addEventListener("message", (event) => {
+    const listener = (event) => {
       if (event.data.type === PUBLISH_EXPRESSION_UPDATES) {
         setParsedExpressions(event.data.parsedExpressions)
         setRawExpressions(event.data.rawExpressions)
         setRowData(event.data.rowData)
       }
-    })
+    }
+
+    myWorker.port.addEventListener("message", listener)
     myWorker.port.start()
 
     setSheetWorker(myWorker)
+
+    return () => {
+      myWorker.port.close()
+      myWorker.removeEventListener("message", listener)
+      setSheetWorker(undefined)
+    }
   }, [])
 
   const update = useCallback(
