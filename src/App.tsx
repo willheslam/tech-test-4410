@@ -115,8 +115,6 @@ const useSpreadsheetWorker = () => {
 const Spreadsheet = () => {
   const [rowData, rawExpressions, update] = useSpreadsheetWorker()
 
-  const [colDefs, setColDefs] = useState(gridColumns)
-
   const [inputText, setInputText] = useState("")
   const [currentCell, setCurrentCell] = useState<string>()
 
@@ -172,7 +170,7 @@ const Spreadsheet = () => {
         onCellEditRequest={handleCellEditRequest}
         theme={themeBalham}
         rowData={rowData}
-        columnDefs={colDefs}
+        columnDefs={gridColumns}
         defaultColDef={defaultColDef}
         getRowId={getRowId}
       />
