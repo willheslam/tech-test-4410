@@ -50,20 +50,17 @@ const defaultColDef = {
 const gridStyle = { width: "100%", height: "100vh" }
 const inputStyle = { width: "100%" }
 
-const Spreadsheet = () => {
-  const [sheetWorker, setSheetWorker] = useState<SharedWorker>()
-
+const useSpreadsheetWorker = () => {
   const [rowData, setRowData] = useState(initialRowData)
-
-  const [colDefs, setColDefs] = useState(gridColumns)
 
   const [rawExpressions, setRawExpressions] = useState(
     {} as Record<string, string>,
   )
-
   const [parsedSheetExpressions, setParsedExpressions] = useState(
     {} as Record<string, ExpressionNode>,
   )
+
+  const [sheetWorker, setSheetWorker] = useState<SharedWorker>()
 
   useEffect(() => {
     const myWorker = new SharedWorker(new URL("./worker.js", import.meta.url), {
@@ -111,6 +108,14 @@ const Spreadsheet = () => {
     },
     [sheetWorker],
   )
+
+  return [rowData, rawExpressions, update] as const
+}
+
+const Spreadsheet = () => {
+  const [rowData, rawExpressions, update] = useSpreadsheetWorker()
+
+  const [colDefs, setColDefs] = useState(gridColumns)
 
   const [inputText, setInputText] = useState("")
   const [currentCell, setCurrentCell] = useState<string>()
