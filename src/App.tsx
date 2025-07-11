@@ -1,18 +1,14 @@
 import './App.css';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { AgGridReact } from 'ag-grid-react';
 
+import type { CellEditRequestEvent, CellFocusedEvent } from 'ag-grid-community';
 import {
   AllCommunityModule,
   ModuleRegistry,
   themeBalham,
-} from 'ag-grid-community';
-import type {
-  CellValueChangedEvent,
-  CellEditRequestEvent,
-  CellFocusedEvent,
 } from 'ag-grid-community';
 
 import {
