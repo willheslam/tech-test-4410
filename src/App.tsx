@@ -12,6 +12,7 @@ import {
 import type {
   CellValueChangedEvent,
   CellEditRequestEvent,
+  CellFocusedEvent,
 } from "ag-grid-community"
 
 import { UPDATE } from "./protocol"
@@ -27,7 +28,7 @@ const gridColumns = Array.from({ length: columns + 1 }, (_, i) => ({
   colId: `${i}`,
   field: `${i}`,
   headerName: i === 0 ? "" : String.fromCharCode(64 + i),
-  editable: true,
+  editable: i > 0,
 
   // TODO: will this be useful for colocating numeric results and string expressions?
   // where to show text expressions?
@@ -41,14 +42,7 @@ const gridColumns = Array.from({ length: columns + 1 }, (_, i) => ({
 }))
 const initialRowData = Array.from(
   { length: rows },
-  (_, i) =>
-    [
-      `${i + 1}`,
-      ...Array.from(
-        { length: columns },
-        () => `${Math.floor(100.0 * Math.random())}`,
-      ),
-    ] as const,
+  (_, i) => [`${i + 1}`, ...Array.from({ length: columns }, () => ``)] as const,
 )
 
 const defaultColDef = {
@@ -58,6 +52,7 @@ const defaultColDef = {
 // TODO: all the quick start examples use a height of 100%
 // which shows nothing by default so set it to 100vh for now
 const gridStyle = { width: "100%", height: "100vh" }
+const inputStyle = { width: "100%" }
 
 const Spreadsheet = () => {
   const [sheetWorker, setSheetWorker] = useState<SharedWorker>()
@@ -82,29 +77,75 @@ const Spreadsheet = () => {
 
   const [colDefs, setColDefs] = useState(gridColumns)
 
+  const [sheetExpressions, setSheetExpressions] = useState(
+    {} as Record<string, string>,
+  )
+
   const handleCellValueChanged = useCallback(
     (event: CellValueChangedEvent) => {},
     [],
   )
 
+  const [inputText, setInputText] = useState("")
+  const [currentCell, setCurrentCell] = useState<string>()
+
   const handleCellEditRequest = useCallback(
     (event: CellEditRequestEvent) => {
-      console.log("edit request", event)
-      if (sheetWorker !== undefined) {
+      if (sheetWorker !== undefined && currentCell !== undefined) {
+        setSheetExpressions((sheetExpressions) => ({
+          ...sheetExpressions,
+          [currentCell]: event.newValue,
+        }))
+        setInputText(event.newValue)
+
         sheetWorker.port.postMessage({
           type: UPDATE,
-          row: event.data[0],
-          column: event.colDef.headerName,
+          key: currentCell,
           newValue: event.newValue,
         })
       }
     },
-    [sheetWorker],
+    [sheetWorker, currentCell],
+  )
+
+  const handleKeyDown = useCallback(
+    (event) => {
+      if (event.key === "Enter" && currentCell !== undefined && sheetWorker !== undefined) {
+        sheetWorker.port.postMessage({
+          type: UPDATE,
+          key: currentCell,
+          newValue: event.newValue,
+        })
+
+        setSheetExpressions((sheetExpressions) => ({
+          ...sheetExpressions,
+          [currentCell]: inputText,
+        }))
+      }
+    },
+    [sheetWorker, currentCell, inputText],
+  )
+
+  const handleCellFocused = useCallback(
+    (event: CellFocusedEvent) => {
+      const key = `${event.column.colDef.headerName}${event.rowIndex + 1}`
+
+      setCurrentCell(key)
+      setInputText(sheetExpressions[key] ?? "")
+    },
+    [sheetExpressions],
   )
 
   return (
     <div style={gridStyle}>
+      <input
+        style={inputStyle}
+        onKeyDown={handleKeyDown}
+        type="text"
+        value={inputText}
+      ></input>
       <AgGridReact
+        onCellFocused={handleCellFocused}
         readOnlyEdit={true}
         onCellEditRequest={handleCellEditRequest}
         theme={themeBalham}
