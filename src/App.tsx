@@ -1,6 +1,6 @@
 import "./App.css"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 
 import { AgGridReact } from "ag-grid-react"
 
@@ -11,12 +11,9 @@ import {
   themeBalham,
 } from "ag-grid-community"
 
-import {
-  INPUT_EXPRESSION_UPDATES,
-  PUBLISH_EXPRESSION_UPDATES,
-} from "./protocol"
-import type { ExpressionNode } from "./spreadsheet/expressions"
-import { DEMO_HEIGHT, DEMO_WIDTH } from "./spreadsheet/table"
+import { DEMO_WIDTH } from "./spreadsheet/table"
+
+import { useSpreadsheet, type RowData } from "./spreadsheet/use-spreadsheet"
 
 ModuleRegistry.registerModules([AllCommunityModule])
 
@@ -35,11 +32,6 @@ const gridColumns = Array.from({ length: DEMO_WIDTH + 1 }, (_, i) => ({
     return ""
   },
 }))
-const initialRowData = Array.from(
-  { length: DEMO_HEIGHT },
-  (_, i) =>
-    [`${i + 1}`, ...Array.from({ length: DEMO_WIDTH }, () => ``)] as const,
-)
 
 const defaultColDef = {
   flex: 1,
@@ -49,68 +41,6 @@ const defaultColDef = {
 // which shows nothing by default so set it to 100vh for now
 const gridStyle = { width: "100%", height: "100vh" }
 const inputStyle = { width: "100%" }
-
-const useSpreadsheetWorker = () => {
-  const [rowData, setRowData] = useState(initialRowData)
-
-  const [rawExpressions, setRawExpressions] = useState(
-    {} as Record<string, string>,
-  )
-  const [parsedSheetExpressions, setParsedExpressions] = useState(
-    {} as Record<string, ExpressionNode>,
-  )
-
-  const [sheetWorker, setSheetWorker] = useState<SharedWorker>()
-
-  useEffect(() => {
-    const myWorker = new SharedWorker(new URL("./worker.js", import.meta.url), {
-      name: "spreadsheet-shared-worker",
-    })
-
-    myWorker.onerror = (error) => {
-      console.error(error)
-    }
-    const listener = (event) => {
-      if (event.data.type === PUBLISH_EXPRESSION_UPDATES) {
-        setParsedExpressions(event.data.parsedExpressions)
-        setRawExpressions(event.data.rawExpressions)
-        setRowData(event.data.rowData)
-      }
-    }
-
-    myWorker.port.addEventListener("message", listener)
-    myWorker.port.start()
-
-    setSheetWorker(myWorker)
-
-    return () => {
-      myWorker.port.close()
-      myWorker.removeEventListener("message", listener)
-      setSheetWorker(undefined)
-    }
-  }, [])
-
-  const update = useCallback(
-    (currentCell: string, text: string) => {
-      if (sheetWorker !== undefined) {
-        sheetWorker.port.postMessage({
-          type: INPUT_EXPRESSION_UPDATES,
-          expressions: {
-            [currentCell]: text,
-          },
-        })
-
-        setRawExpressions((sheetExpressions) => ({
-          ...sheetExpressions,
-          [currentCell]: text,
-        }))
-      }
-    },
-    [sheetWorker],
-  )
-
-  return [rowData, rawExpressions, update] as const
-}
 
 const eventToKey = (ev: CellEditRequestEvent | CellFocusedEvent): string =>
   `${ev.column.colDef.headerName}${ev.rowIndex + 1}`
@@ -126,7 +56,7 @@ const Grid = ({
   update: (cell: string, expression: string) => void
   setExpressionText: (expression: string) => void
   rawExpressions: Record<string, string>
-  rowData: typeof initialRowData
+  rowData: RowData
 }) => {
   const handleCellEditRequest = useCallback(
     (event: CellEditRequestEvent) => {
@@ -197,7 +127,7 @@ const ExpressionInput = ({
 }
 
 const Spreadsheet = () => {
-  const [rowData, rawExpressions, update] = useSpreadsheetWorker()
+  const [rowData, rawExpressions, update] = useSpreadsheet()
 
   const [expressionText, setExpressionText] = useState("")
   const [currentCell, setCurrentCell] = useState<string>()
